@@ -380,26 +380,32 @@ def check_path_exists(repo, ref, path, rootdir=None):
 def get_commits_files(repo, ref):
     """Return the file paths modified by each commit reachable from `ref`.
 
-    This is the same data as `Commit.stats.files` (diff with the first
-    parent, renames disabled), retrieved for all commits with one single
-    git command instead of one per commit.
+    Files are compared with the first parent, renames disabled (same as
+    `Commit.stats.files`), retrieved for all commits with one single git
+    command instead of one per commit. File contents (blobs) are not read,
+    and paths are not quoted (`-z`) even if they contain special characters.
     Merge commits are not included.
 
     :return: dict `{SHA: {file_path, ...}, ...}`
     """
+    # Output: '\x01<SHA>\x00' for each commit, followed by '\n<file>\x00...'
+    # if the commit updates some files
     output = repo.git.log(
         ref,
+        "-z",
         "--no-merges",
         "--no-renames",
         "--no-color",
         "--no-ext-diff",
         "--name-only",
-        "--format=%x00%H",
+        "--format=%x01%H",
     )
     commits_files = {}
-    for chunk in output.split("\x00")[1:]:
-        sha, *files = chunk.splitlines()
-        commits_files[sha] = {f for f in files if f}
+    for chunk in output.split("\x01")[1:]:
+        sha, __, files = chunk.partition("\x00")
+        if files.startswith("\n"):
+            files = files[1:]
+        commits_files[sha] = {f for f in files.split("\x00") if f}
     return commits_files
 
 
