@@ -79,3 +79,36 @@ class TestGit(common.CommonCase):
         self.assertEqual(c1, c2)
         self.assertEqual(c1.paths, c2.paths)
         self.assertNotEqual(c1.files, c2.files)  # Different file paths updated
+
+    def test_commit_path(self):
+        path = g.CommitPath(".", "my_module/models/file.py")
+        self.assertEqual(path, "my_module")
+        self.assertTrue(path.isdir)
+        path = g.CommitPath(".", "README.md")
+        self.assertEqual(path, "README.md")
+        self.assertFalse(path.isdir)
+        path = g.CommitPath("addons", "addons/my_module/__init__.py")
+        self.assertEqual(path, "my_module")
+        path = g.CommitPath(
+            ".", "my_module/__init__.py", eq_paths={"my_module": "new_module"}
+        )
+        self.assertEqual(path, "new_module")
+        with self.assertRaises(ValueError):
+            g.CommitPath("addons", "other/my_module/__init__.py")
+
+    def test_get_commits_files(self):
+        commits_files = g.get_commits_files(self.repo, self.branch1)
+        self.assertTrue(commits_files)
+        for raw_commit in self.repo.iter_commits(self.branch1, no_merges=True):
+            self.assertEqual(
+                commits_files[raw_commit.hexsha], set(raw_commit.stats.files)
+            )
+
+    def test_commit_index(self):
+        raw_commits = list(self.repo.iter_commits(self.branch1))
+        commits = [g.Commit(raw_commit) for raw_commit in raw_commits]
+        index = g.CommitIndex(commits[1:])
+        self.assertNotIn(commits[0], index)
+        for commit in commits[1:]:
+            self.assertIn(g.Commit(commit.raw_commit), index)
+            self.assertEqual(index.matches(commit), [commit])

@@ -43,3 +43,10 @@ class TestUserCache(common.CommonCase):
         self.assertFalse(self.cache.get_commit_files(sha))
         self.cache.set_commit_files(sha, files)
         self.assertEqual(self.cache.get_commit_files(sha), files)
+
+    def test_commit_without_pr(self):
+        sha = "TEST"
+        self.assertFalse(self.cache.is_commit_without_pr(sha))
+        self.cache.mark_commit_without_pr(sha)
+        self.assertTrue(self.cache.is_commit_without_pr(sha))
+        self.assertFalse(self.cache.get_pr_from_commit(sha))

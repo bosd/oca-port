@@ -18,6 +18,8 @@ class GitHub:
         if not token:
             token = self._get_token()
         self.token = token
+        # Reuse connections (and TLS sessions) between requests
+        self.session = requests.Session()
 
     def request(self, url: str, method: str = "get", params=None, json=None):
         """Request GitHub API."""
@@ -33,7 +35,7 @@ class GitHub:
             kwargs.update(json=json)
         if params:
             kwargs.update(params=params)
-        response = getattr(requests, method)(full_url, **kwargs)
+        response = self.session.request(method, full_url, **kwargs)
         if not response.ok:
             raise RuntimeError(response.text)
         return response.json()
@@ -41,7 +43,10 @@ class GitHub:
     def get_original_pr(
         self, from_org: str, repo_name: str, branch: str, commit_sha: str
     ):
-        """Return original GitHub PR data of a commit."""
+        """Return original GitHub PR data of a commit.
+
+        The SHAs of the PR commits are returned in the `commits` key.
+        """
         gh_commit_pulls = self.request(
             f"repos/{from_org}/{repo_name}/commits/{commit_sha}/pulls"
         )
@@ -50,10 +55,10 @@ class GitHub:
                 data["base"]["ref"] == branch
                 and data["base"]["repo"]["full_name"] == f"{from_org}/{repo_name}"
             ):
-                data2 = self.request(data["commits_url"])
+                data2 = self.request(data["commits_url"], params={"per_page": 100})
                 pr_commits = [d["sha"] for d in data2]
                 if commit_sha in pr_commits:
-                    return data
+                    return dict(data, commits=pr_commits)
         return {}
 
     def search_migration_pr(

@@ -61,6 +61,14 @@ class NoCache:
         # No PR data to return
         return {}
 
+    def mark_commit_without_pr(self, commit_sha: str):
+        # Do nothing
+        pass
+
+    def is_commit_without_pr(self, commit_sha: str):
+        # No data, we don't know
+        return False
+
     def get_commit_files(self, commit_sha: str):
         # No commit files to return
         return set()
@@ -155,7 +163,7 @@ class UserCache:
     def _get_ported_commits(self):
         self._ported_commits_path.parent.mkdir(parents=True, exist_ok=True)
         self._ported_commits_path.touch(exist_ok=True)
-        return self._ported_commits_path.read_text().splitlines()
+        return set(self._ported_commits_path.read_text().splitlines())
 
     def _get_commits_to_port(self):
         self._commits_to_port_path.parent.mkdir(parents=True, exist_ok=True)
@@ -189,7 +197,7 @@ class UserCache:
             return
         if self.is_commit_ported(commit_sha):
             return
-        self._ported_commits.append(commit_sha)
+        self._ported_commits.add(commit_sha)
         with self._ported_commits_path.open(mode="a") as file_:
             file_.write(f"{commit_sha}\n")
 
@@ -213,6 +221,17 @@ class UserCache:
         if pr_number:
             return self._commits_to_port["pull_requests"][str(pr_number)]
         return {}
+
+    def mark_commit_without_pr(self, commit_sha: str):
+        """Remember that no original PR has been found for a commit."""
+        if self.readonly:
+            return
+        self._commits_to_port["commits"][commit_sha]["pr"] = False
+
+    def is_commit_without_pr(self, commit_sha: str):
+        """Return `True` if it is known that a commit has no original PR."""
+        commits = self._commits_to_port["commits"]
+        return commit_sha in commits and commits[commit_sha].get("pr") is False
 
     def get_commit_files(self, commit_sha: str):
         """Return file paths modified by a commit."""
