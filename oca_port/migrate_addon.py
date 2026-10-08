@@ -2,6 +2,8 @@
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl)
 
 import os
+import shutil
+import subprocess
 import git_filter_repo as gfr
 import tempfile
 import urllib.parse
@@ -14,6 +16,7 @@ from .utils import git as g
 from .utils.misc import Output, bcolors as bc, update_terms_in_directory
 
 MIG_BRANCH_NAME = "{branch}-mig-{addon}"
+ODOO_LINT_BIN = "odl"
 MIG_MERGE_COMMITS_URL = (
     "https://github.com/OCA/maintainer-tools/wiki/Merge-commits-in-pull-requests"
 )
@@ -155,6 +158,11 @@ class MigrateAddon(Output):
             # Handle module move/renaming
             if self.app.source.addon_path != self.app.target.addon_path:
                 self._move_addon()
+            # Apply upgrade fixes with odoo-lint (if installed). Done before
+            # odoo-module-migrator, which bumps the manifest version that
+            # odoo-lint reads to know the upgrade steps to apply.
+            if self.app.odoo_lint:
+                self._apply_odoo_lint()
             # Run pre-commit
             if self.app.pre_commit:
                 updated_files = g.run_pre_commit(self.app.repo)
@@ -399,6 +407,35 @@ class MigrateAddon(Output):
             text = f"\t{i}) " + MIG_STEPS[step]
             result.append(text)
         return "\n".join(result)
+
+    def _apply_odoo_lint(self):
+        """Apply the upgrade fixes of odoo-lint and commit them.
+
+        Return `True` if some fixes have been committed.
+        """
+        odl = shutil.which(ODOO_LINT_BIN)
+        if not odl:
+            return False
+        # Flush to keep the output in order with the one of odoo-lint
+        print(f"\tRun {bc.BOLD}odoo-lint{bc.END} upgrade fixes...", flush=True)
+        addon_path = str(self.app.target.addon_path)
+        cmd = [odl, "upgrade-check", "--target", self.app.target_version, "--fix"]
+        if self.app.odoo_lint_unsafe_fixes:
+            cmd.append("--unsafe-fixes")
+        cmd.append(addon_path)
+        # Exit code 1 only means that some changes remain to do by hand
+        res = subprocess.run(cmd, cwd=self.app.repo.working_dir)
+        if res.returncode not in (0, 1):
+            self._print(f"⚠️  odoo-lint failed (exit code {res.returncode})")
+            return False
+        if not self.app.repo.is_dirty(untracked_files=True, path=addon_path):
+            return False
+        g.commit(
+            self.app.repo,
+            msg=f"[IMP] {self.app.target.addon}: odoo-lint upgrade fixes",
+            paths=[addon_path],
+        )
+        return True
 
     def _apply_code_pattern(self):
         print("Apply code pattern...")
