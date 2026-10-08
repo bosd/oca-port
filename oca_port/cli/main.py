@@ -118,6 +118,16 @@ from ..utils.misc import bcolors as bc
     default=True,
     help="Run odoo-module-migrator after porting.",
 )
+@click.option(
+    "--odoo-lint/--no-odoo-lint",
+    default=True,
+    help="Apply odoo-lint (odl) upgrade fixes after porting, if installed.",
+)
+@click.option(
+    "--odoo-lint-unsafe-fixes",
+    is_flag=True,
+    help="Also apply the odoo-lint upgrade fixes that need a review.",
+)
 @click.option("--no-cache", is_flag=True, help="Disable user's cache.")
 @click.option("--clear-cache", is_flag=True, help="Clear the user's cache.")
 @click.option(
@@ -141,6 +151,8 @@ def main(
     fetch: bool,
     pre_commit: bool,
     module_migration: bool,
+    odoo_lint: bool,
+    odoo_lint_unsafe_fixes: bool,
     no_cache: bool,
     clear_cache: bool,
     dry_run: bool,
@@ -178,6 +190,8 @@ def main(
             fetch=fetch,
             pre_commit=pre_commit,
             module_migration=module_migration,
+            odoo_lint=odoo_lint,
+            odoo_lint_unsafe_fixes=odoo_lint_unsafe_fixes,
             no_cache=no_cache,
             clear_cache=clear_cache,
             dry_run=dry_run,

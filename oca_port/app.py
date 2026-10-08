@@ -78,6 +78,8 @@ class App(Output):
     fetch: bool = False
     pre_commit: bool = True
     module_migration: bool = True
+    odoo_lint: bool = True
+    odoo_lint_unsafe_fixes: bool = False
     no_cache: bool = False
     clear_cache: bool = False
     github_token: str = None

@@ -28,6 +28,16 @@ To automatically apply code patterns with [odoo-module-migrator](https://github.
 
     $ pipx inject --include-deps  oca-port git+https://github.com/OCA/odoo-module-migrator.git@master
 
+To automatically apply the upgrade fixes of [odoo-lint](https://github.com/bosd/odoo-lint)
+when migrating a module, install it so that its `odl` command is available
+(use `--odoo-lint-unsafe-fixes` to also apply the fixes that need a review,
+or `--no-odoo-lint` to skip it):
+
+    $ pipx install odoo-linter
+
+The fixes are committed separately (`[IMP] <module>: odoo-lint upgrade fixes`),
+before running pre-commit and odoo-module-migrator.
+
 ## <a name="use"/>Using
 
 If the addon does not exist on the target branch, it will assist the user in
